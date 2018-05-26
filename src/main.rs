@@ -6,7 +6,10 @@ extern crate serde;
 extern crate serde_json;
 extern crate redis;
 
+extern crate chrono;
+
 use redis::PipelineCommands;
+use chrono::prelude::*;
 
 use std::process;
 
@@ -34,23 +37,23 @@ struct PostData {
 
 fn main() {
     let self_posts = get_posts(20).unwrap_or_else(|e| {
-        eprintln!("Unable to fetch posts: {:?}", e);
+        log_error(&format!("Unable to fetch posts: {:?}", e));
         process::exit(1);
     });
 
     let redis_client = redis::Client::open("redis://127.0.0.1").unwrap_or_else(|e| {
-        eprintln!("Unable to create the store client: {:?}", e);
+        log_error(&format!("Unable to create the store client: {:?}", e));
         process::exit(1);
     }); 
 
     let redis_conn = redis_client.get_connection().unwrap_or_else(|e| {
-        eprintln!("Unable to get a connection to the store: {:?}", e);
+        log_error(&format!("Unable to get a connection to the store: {:?}", e));
         process::exit(1);
     });
 
     match add_posts_to_store(&redis_conn, self_posts) {
-        Ok(n) => println!("Stored {} posts.", n),
-        Err(e) => eprintln!("Could not store posts: {:?}", e),
+        Ok(n) => println!("{}: Stored {} posts.", Local::now().format("%c"), n),
+        Err(e) => log_error(&format!("Could not store posts: {:?}", e)),
     };
 }
 
@@ -77,4 +80,8 @@ fn add_posts_to_store(store: &redis::Connection, posts: Vec<Post>) -> redis::Red
     pipe.query(store)?;
 
     Ok(num_posts)
+}
+
+fn log_error(error: &str) {
+    eprintln!("{}: {}", Local::now().format("%c"), error);
 }
